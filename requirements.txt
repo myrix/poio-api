@@ -1,3 +1,4 @@
+wheel
 numpydoc
 regex
 graf-python
