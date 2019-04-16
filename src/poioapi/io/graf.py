@@ -26,7 +26,7 @@ import graf
 
 # GrAF ID's separator
 GRAFSEPARATOR = ".."
-(TEXT, AUDIO, VIDEO, NONE, UNKNOWN) = ("text", "audio", "video", "none")
+(TEXT, AUDIO, VIDEO, NONE, UNKNOWN) = ("text", "audio", "video", "none", "none")
 
 
 class Tier:
