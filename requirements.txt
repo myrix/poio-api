@@ -2,3 +2,4 @@ wheel
 numpydoc
 regex
 graf-python
+xlwt

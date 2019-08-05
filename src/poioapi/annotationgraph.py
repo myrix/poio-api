@@ -32,6 +32,8 @@ import poioapi.mapper
 
 import graf
 
+from poioapi.tree import Tree
+
 class AnnotationGraph():
     """This class stores annotation data as annotation graphs and makes it
     accessible in tier hierarchies. It reads data from various file formats.
@@ -435,6 +437,39 @@ class AnnotationGraph():
         table += "</table>"
         return table
 
+    def as_tree(self, filtered=False):
+
+        tree = Tree("root")
+
+        for node in enumerate(self.root_nodes()):
+            if filtered and (len(self.filtered_node_ids) == 0 or
+                             node[1].id not in self.filtered_node_ids[-1]):
+                continue
+            tree.append_child()
+            tree.children[-1].id = node[1].id
+            tree.children[-1].tier_id = node[1].id[node[1].id.find("..")+2:node[1].id.find("na")-2]
+            tree.children[-1].node_info = node[1]
+            tree.children[-1].data = self.annotation_value_for_node(node[1])
+
+        self.node_as_tree(tree)
+        tree.tree_modify()
+
+        return tree
+
+    def node_as_tree(self, node):
+        if node.node_info:
+            for child_node in node.node_info.iter_children():
+                node.append_child()
+                node.children[-1].id = child_node.id
+                node.children[-1].tier_id = child_node.id[child_node.id.find("..")+2:child_node.id.find("na")-2]
+                node.children[-1].node_info = child_node
+                node.children[-1].data = self.annotation_value_for_node(child_node)
+                self.node_as_tree(node.children[-1])
+        else:
+            for child in node.children:
+                self.node_as_tree(child)
+        return node
+
     def to_elan(self, outputfile):
         """Write the annotation graph as Elan EAF files.
         """
@@ -788,6 +823,7 @@ class AnnotationGraphFilter():
                             self.matchobject[t][node.id] =\
                             [ [m.start(), m.end()] for m in re.finditer(
                                 self.filter[t], a) ]
+
                             result_dict[t] = True
                 else:
                     result_dict[t] = True
