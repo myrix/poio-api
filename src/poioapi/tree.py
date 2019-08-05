@@ -82,6 +82,8 @@ class Tree(object):
 
         tier_col = dict()
 
+        empty = True
+
         def print_block(node, sheet, offset=0):
             for child in node.children:
                 print_block(child, sheet, offset)
@@ -92,6 +94,8 @@ class Tree(object):
         for child in self.children:
             if filtered and not child.marked_as_filtered:
                 continue
+
+            empty = False
 
             sheet = wb.add_sheet(child.id)
 
@@ -108,26 +112,39 @@ class Tree(object):
                     tier_col[tier] = 1
                 print_block(left_context, sheet, 0)
 
-            row = len(tiers) + 2
+            row_offset = 0
+            if left_context:
+                row_offset = len(tiers) + 2
+            row = row_offset
             for tier in tiers:
                 sheet.write(row, 0, tier, style)
                 row += 1
                 tier_col[tier] = 1
-            print_block(child, sheet, len(tiers) + 2)
+
+            print_block(child, sheet, row_offset)
 
             if child_index < len(self.children) - 1:
                 right_context = self.children[child_index + 1]
             else:
                 right_context = None
             if right_context:
-                row = 2 * len(tiers) + 4
+
+                row_offset = len(tiers) + 2
+                if left_context:
+                    row_offset = 2 * len(tiers) + 4
+                row = row_offset
+
                 for tier in tiers:
                     sheet.write(row, 0, tier, style)
                     row += 1
                     tier_col[tier] = 1
-                print_block(right_context, sheet, 2*len(tiers) + 4)
+                print_block(right_context, sheet, row_offset)
 
-        wb.save(output_file)
+        if not empty:
+            wb.save(output_file)
+            return True
+        else:
+            return False
 
     def get_tiers(self):
         tier_list = list()
