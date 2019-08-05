@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import poioapi.annotationgraph
 
+'''
 EAF_FILEPATH = "Luka.eaf"
 OUTPUT_XLS_PATH = "out.xls"
+'''
 
 
 # returns True if something was found
@@ -13,6 +15,8 @@ def eaf_search(input_path, output_path, search_query):
     wrote_something = tree.print_to_xls(output_path, filtered=True)
     return wrote_something
 
+
+'''
 query = list()
 first_or = list()
 second_or = list()
@@ -24,3 +28,4 @@ query.append(second_or)
 
 
 print(eaf_search(EAF_FILEPATH, OUTPUT_XLS_PATH, query))
+'''
