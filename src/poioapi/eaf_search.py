@@ -6,26 +6,31 @@ EAF_FILEPATH = "Luka.eaf"
 OUTPUT_XLS_PATH = "out.xls"
 '''
 
-
 # returns True if something was found
-def eaf_search(input_path, output_path, search_query):
+def eaf_search(input_path, output_path, search_query, sheet_name):
     annotation_graph = poioapi.annotationgraph.AnnotationGraph.from_elan(input_path)
     tree = annotation_graph.as_tree()
     tree.filter(search_query)
-    wrote_something = tree.print_to_xls(output_path, filtered=True)
+    wrote_something = tree.print_to_xls(output_path, filtered=True, name=sheet_name)
     return wrote_something
 
-
 '''
-query = list()
-first_or = list()
-second_or = list()
-first_or.append("Ангелъ")
-second_or.append("возвратиться")
-second_or.append("мурдасть")
-query.append(first_or)
-query.append(second_or)
+query = dict()
+query['type'] = 'and'
+query['value'] = list()
+query['tiers'] = ['word']
 
+first_and = dict()
+first_and['type'] = 'substr'
+first_and['value'] = 'Ангелъ'
+first_and['tiers'] = ['transcription']
 
-print(eaf_search(EAF_FILEPATH, OUTPUT_XLS_PATH, query))
+second_and = dict()
+second_and['type'] = 'substr'
+second_and['value'] = 'Ангел'
+
+query['value'].append(first_and)
+query['value'].append(second_and)
+
+print(eaf_search(EAF_FILEPATH, OUTPUT_XLS_PATH, query, "new_nnnsheet"))
 '''

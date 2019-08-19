@@ -1,4 +1,6 @@
 import xlwt
+import xlrd
+from xlutils.copy import copy
 
 class Tree(object):
 
@@ -69,27 +71,58 @@ class Tree(object):
                 for child in self.children:
                     child.print(False)
 
-    def print_to_xls(self, output_file, filtered=False):
-        font = xlwt.Font()
-        font.name = 'Arial'
-        font.colour_index = 0
-        font.bold = True
+    def print_to_xls(self, output_file, name="sheet", filtered=False):
+        font_main = xlwt.Font()
+        font_main.name = 'Arial'
+        font_main.colour_index = 0
+        font_main.bold = False
+
+        font_tiers = xlwt.Font()
+        font_tiers.name = 'Arial'
+        font_tiers.colour_index = 0
+        font_tiers.bold = True
+
+        font_sep = xlwt.Font()
+        font_sep.name = 'Arial'
+        font_sep.colour_index = 2
+        font_sep.bold = True
 
         style = xlwt.XFStyle()
-        style.font = font
+        style.font = font_tiers
 
-        wb = xlwt.Workbook()
+        style_tiers = xlwt.XFStyle()
+        style_tiers.font = font_main
+
+        style_sep = xlwt.XFStyle()
+        style_sep.borders.bottom = 6
+        style_sep.borders.top = 6
+        style_sep.borders.bottom_colour = 2
+        style_sep.borders.top_colour = 2
+
+        style_context_sep = xlwt. XFStyle()
+        style_context_sep.font = font_sep
+        style_context_sep.borders.top = 2
+        style_context_sep.borders.top_colour = 3
+        style_context_sep.borders.bottom = 2
+        style_context_sep.borders.bottom_colour = 3
+
+        rb = xlrd.open_workbook(output_file, on_demand=True, formatting_info=True)
+        wb = copy(rb)
+
+        sheet = wb.add_sheet(name)
+        # above: opened output file for edditing and added new sheet to it
 
         tier_col = dict()
 
         empty = True
 
-        def print_block(node, sheet, offset=0):
+        def print_block(node, sheet, row_offset=0):
             for child in node.children:
-                print_block(child, sheet, offset)
+                print_block(child, sheet, row_offset)
             tier_col[node.tier_id] += 1
-            sheet.write(tiers.index(node.tier_id)+offset, tier_col[node.tier_id], node.data, style)
+            sheet.write(tiers.index(node.tier_id)+row_offset, tier_col[node.tier_id], node.data, style)
 
+        row_offset = 0
         tiers = self.get_tiers()
         for child in self.children:
             if filtered and not child.marked_as_filtered:
@@ -97,7 +130,11 @@ class Tree(object):
 
             empty = False
 
-            sheet = wb.add_sheet(child.id)
+            sheet.write(row_offset, 0, "", style_sep)
+            for i in range(1, 21):
+                sheet.write(row_offset, i, "", style_sep)
+
+            row_offset += 2
 
             child_index = self.children.index(child)
             if child_index > 0:
@@ -105,40 +142,53 @@ class Tree(object):
             else:
                 left_context = None
             if left_context:
+
+                sheet.write(row_offset, 0, "Left context", style_context_sep)
+                row_offset += 2
+
                 row = 0
                 for tier in tiers:
-                    sheet.write(row, 0, tier, style)
+                    sheet.write(row_offset + row, 0, tier, style_tiers)
                     row += 1
                     tier_col[tier] = 1
-                print_block(left_context, sheet, 0)
+                print_block(left_context, sheet, row_offset)
+                row_offset += len(tiers) + 1
+            else:
+                sheet.write(row_offset, 0, "No left context", style_context_sep)
+                row_offset += 2
 
-            row_offset = 0
-            if left_context:
-                row_offset = len(tiers) + 2
+            sheet.write(row_offset, 0, "Search result", style_context_sep)
+            row_offset += 2
+
             row = row_offset
             for tier in tiers:
-                sheet.write(row, 0, tier, style)
+                sheet.write(row, 0, tier, style_tiers)
                 row += 1
                 tier_col[tier] = 1
 
             print_block(child, sheet, row_offset)
+            row_offset += len(tiers) + 1
 
             if child_index < len(self.children) - 1:
                 right_context = self.children[child_index + 1]
             else:
                 right_context = None
+
             if right_context:
 
-                row_offset = len(tiers) + 2
-                if left_context:
-                    row_offset = 2 * len(tiers) + 4
-                row = row_offset
+                sheet.write(row_offset, 0, "Right context", style_context_sep)
+                row_offset += 2
 
+                row = row_offset
                 for tier in tiers:
-                    sheet.write(row, 0, tier, style)
+                    sheet.write(row, 0, tier, style_tiers)
                     row += 1
                     tier_col[tier] = 1
                 print_block(right_context, sheet, row_offset)
+                row_offset += len(tiers) + 1
+            else:
+                sheet.write(row_offset, 0, "No right context", style_context_sep)
+                row_offset += 1
 
         if not empty:
             wb.save(output_file)
@@ -191,38 +241,83 @@ class Tree(object):
     # fields: [tier_id1, tier_id2]
 
     # marks only those children of root which suit search query
-    def filter(self, search, tiers=None):
+    def filter(self, search):
+        # primary check of 'search' dict object, should have fields 'type' and 'value' and 'tiers' optionally
+        # 'type' may be 'str', 'substr', 're', 'and', 'or'
+        # 'value' for first three types above should have type string, for the last two - list
+        # 'tiers' may be specified as a filter list of tier_ids where to search
         if not search:
             return None
+        if type(search) != dict or 'type' not in search.keys() or 'value' not in search.keys():
+            raise KeyError("Bad type of a search query, should be dict with type and value keys")
 
         # build search chains from search and compare them with a tree chain
         def search_chain(search, tree_chain):
-            if type(search) == list:
-                if len(search) == 0:
+            if type(search) != dict:
+                print("-")
+            if search['type'] not in ('str', 'substr', 're', 'and', 'or'):
+                raise KeyError("Bad type of a search query, 'type' key should be 'str', 'substr', 're', 'and' or 'or'")
+
+            if search['type'] == 'and' or search['type'] == 'or':
+
+                if not search['value'] or len(search['value']) == 0:
                     return True
-                if len(search) == 1:
-                    return search_chain(search[0], tree_chain)
-                if len(search) > 1:
-                    if type(search[0]) == list:
-                        return search_chain(search[0], tree_chain) or search_chain(search[1:], tree_chain)
+                if type(search['value']) != list:
+                    raise KeyError("Bad value in a search query, if element's type is 'and' or 'or', value should have type list")
+
+                # add all tiers from higher to lower level of the search
+                for child_search_value in search['value']:
+                    if 'tiers' in search.keys():
+                        if 'tiers' not in child_search_value.keys():
+                            child_search_value['tiers'] = search['tiers']
+                        else:
+                            if type(child_search_value['tiers']) != list:
+                                raise KeyError("Bad value in a search query, element has 'tiers' key, but it's type is not list")
+                            for tier in search['tiers']:
+                                if tier not in child_search_value['tiers']:
+                                    child_search_value['tiers'].append(tier)
+
+                if len(search['value']) == 1:
+                    return search_chain(search['value'][0], tree_chain)
+
+                if len(search['value']) > 1:
+                    next_search_elem = dict()
+                    next_search_elem['value'] = search['value'][1:]
+                    if search['type'] == 'or':
+                        next_search_elem['type'] = 'or'
+                        return search_chain(search['value'][0], tree_chain) or search_chain(next_search_elem, tree_chain)
                     else:
-                        return search_chain(search[0], tree_chain) and search_chain(search[1:], tree_chain)
+                        next_search_elem['type'] = 'and'
+                        return search_chain(search['value'][0], tree_chain) and search_chain(next_search_elem, tree_chain)
+
             else:
+                if type(search['value']) != str:
+                    raise KeyError("Bad value in a search query, element's 'type' key value is string-like, but type(element['value']) != str")
                 result = False
                 for element in tree_chain:
-                    # + regexp and ==
-                    if element.find(search) != -1:
-                        result = True
+
+                    if ('tiers' in search.keys() and search['tiers'] and element['tier'] in search['tiers']) or\
+                            ('tiers' not in search.keys() or not search['tiers']):
+
+                        if search['type'] == 'substr':
+                            if element['data'].find(search['value']) != -1:
+                                result = True
+
+                        if search['type'] == 'str':
+                            if element['data'] == search['value']:
+                                result = True
+
+                        # if search['type'] == 're':
+
                 return result
 
         # build tree chains and call check function for each of them
         # this variation of function builds chains based on ways from root to leaves
         def tree_chain(node, chain):
-            if tiers:
-                if node.tier_id in tiers:
-                    chain.append(node.data)
-            else:
-                chain.append(node.data)
+            to_append = dict()
+            to_append['tier'] = node.tier_id
+            to_append['data'] = node.data
+            chain.append(to_append)
             init_depth = node.depth
             if node.children:
                 for child in node.children:
