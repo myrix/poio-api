@@ -3,6 +3,7 @@ import poioapi.annotationgraph
 
 '''
 EAF_FILEPATH = "Luka.eaf"
+EAF1_FILEPATH = "Luka1.eaf"
 OUTPUT_XLS_PATH = "out.xls"
 '''
 
@@ -15,6 +16,7 @@ def eaf_search(input_path, output_path, search_query, sheet_name):
     return wrote_something
 
 '''
+
 query = dict()
 query['type'] = 'and'
 query['value'] = list()
@@ -32,5 +34,6 @@ second_and['value'] = 'Ангел'
 query['value'].append(first_and)
 query['value'].append(second_and)
 
-print(eaf_search(EAF_FILEPATH, OUTPUT_XLS_PATH, query, "new_nnnsheet"))
+print(eaf_search(EAF_FILEPATH, OUTPUT_XLS_PATH, query, "new_sheet"))
+print(eaf_search(EAF1_FILEPATH, OUTPUT_XLS_PATH, query, "new_sheet1"))
 '''

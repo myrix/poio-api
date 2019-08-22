@@ -1,6 +1,8 @@
 import xlwt
 import xlrd
 from xlutils.copy import copy
+import re
+
 
 class Tree(object):
 
@@ -99,7 +101,7 @@ class Tree(object):
         style_sep.borders.bottom_colour = 2
         style_sep.borders.top_colour = 2
 
-        style_context_sep = xlwt. XFStyle()
+        style_context_sep = xlwt.XFStyle()
         style_context_sep.font = font_sep
         style_context_sep.borders.top = 2
         style_context_sep.borders.top_colour = 3
@@ -120,7 +122,7 @@ class Tree(object):
             for child in node.children:
                 print_block(child, sheet, row_offset)
             tier_col[node.tier_id] += 1
-            sheet.write(tiers.index(node.tier_id)+row_offset, tier_col[node.tier_id], node.data, style)
+            sheet.write(tiers.index(node.tier_id) + row_offset, tier_col[node.tier_id], node.data, style)
 
         row_offset = 0
         tiers = self.get_tiers()
@@ -138,7 +140,7 @@ class Tree(object):
 
             child_index = self.children.index(child)
             if child_index > 0:
-                left_context = self.children[child_index-1]
+                left_context = self.children[child_index - 1]
             else:
                 left_context = None
             if left_context:
@@ -236,16 +238,22 @@ class Tree(object):
         else:
             self.node_modify()
 
-    # search: [ [str1, str2], [str3], [str4, [str5, str6] ] ]
-    # equivalent to (str1 and str2) or str3 or (str4) or (str5 and str6)
-    # fields: [tier_id1, tier_id2]
-
     # marks only those children of root which suit search query
     def filter(self, search):
         # primary check of 'search' dict object, should have fields 'type' and 'value' and 'tiers' optionally
         # 'type' may be 'str', 'substr', 're', 'and', 'or'
         # 'value' for first three types above should have type string, for the last two - list
         # 'tiers' may be specified as a filter list of tier_ids where to search
+
+        '''
+        exclude_list = list()
+
+        def process_element(obj):
+            string = obj['value']
+            for i in range(0,len(string)):
+                if string[i] == "\"":
+        '''
+
         if not search:
             return None
         if type(search) != dict or 'type' not in search.keys() or 'value' not in search.keys():
@@ -253,8 +261,6 @@ class Tree(object):
 
         # build search chains from search and compare them with a tree chain
         def search_chain(search, tree_chain):
-            if type(search) != dict:
-                print("-")
             if search['type'] not in ('str', 'substr', 're', 'and', 'or'):
                 raise KeyError("Bad type of a search query, 'type' key should be 'str', 'substr', 're', 'and' or 'or'")
 
@@ -263,7 +269,8 @@ class Tree(object):
                 if not search['value'] or len(search['value']) == 0:
                     return True
                 if type(search['value']) != list:
-                    raise KeyError("Bad value in a search query, if element's type is 'and' or 'or', value should have type list")
+                    raise KeyError(
+                        "Bad value in a search query, if element's type is 'and' or 'or', value should have type list")
 
                 # add all tiers from higher to lower level of the search
                 for child_search_value in search['value']:
@@ -272,7 +279,8 @@ class Tree(object):
                             child_search_value['tiers'] = search['tiers']
                         else:
                             if type(child_search_value['tiers']) != list:
-                                raise KeyError("Bad value in a search query, element has 'tiers' key, but it's type is not list")
+                                raise KeyError(
+                                    "Bad value in a search query, element has 'tiers' key, but it's type is not list")
                             for tier in search['tiers']:
                                 if tier not in child_search_value['tiers']:
                                     child_search_value['tiers'].append(tier)
@@ -285,18 +293,21 @@ class Tree(object):
                     next_search_elem['value'] = search['value'][1:]
                     if search['type'] == 'or':
                         next_search_elem['type'] = 'or'
-                        return search_chain(search['value'][0], tree_chain) or search_chain(next_search_elem, tree_chain)
+                        return search_chain(search['value'][0], tree_chain) or search_chain(next_search_elem,
+                                                                                            tree_chain)
                     else:
                         next_search_elem['type'] = 'and'
-                        return search_chain(search['value'][0], tree_chain) and search_chain(next_search_elem, tree_chain)
+                        return search_chain(search['value'][0], tree_chain) and search_chain(next_search_elem,
+                                                                                             tree_chain)
 
             else:
                 if type(search['value']) != str:
-                    raise KeyError("Bad value in a search query, element's 'type' key value is string-like, but type(element['value']) != str")
+                    raise KeyError(
+                        "Bad value in a search query, element's 'type' key value is string-like, but type(element['value']) != str")
                 result = False
                 for element in tree_chain:
 
-                    if ('tiers' in search.keys() and search['tiers'] and element['tier'] in search['tiers']) or\
+                    if ('tiers' in search.keys() and search['tiers'] and element['tier'] in search['tiers']) or \
                             ('tiers' not in search.keys() or not search['tiers']):
 
                         if search['type'] == 'substr':
@@ -355,5 +366,3 @@ class Tree(object):
                     if child.id != self.id:
                         siblings.append(child)
         return siblings
-
-
