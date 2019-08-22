@@ -1,5 +1,6 @@
 import xlwt
 import xlrd
+from xlrd import XLRDError
 from xlutils.copy import copy
 import re
 
@@ -108,11 +109,20 @@ class Tree(object):
         style_context_sep.borders.bottom = 2
         style_context_sep.borders.bottom_colour = 3
 
-        rb = xlrd.open_workbook(output_file, on_demand=True, formatting_info=True)
-        wb = copy(rb)
+        wb = xlwt.Workbook()
+        flag = False
+        try:
+            rb = xlrd.open_workbook(output_file, on_demand=True, formatting_info=True)
+        except XLRDError as e:
+            if str(e) == "File size is 0 bytes":
+                flag = True
+            else:
+                raise ("Got a trouble with xls file opening")
+        if not flag:
+            wb = copy(rb)
 
         sheet = wb.add_sheet(name)
-        # above: opened output file for edditing and added new sheet to it
+        # above: opened output file for editting and added new sheet to it
 
         tier_col = dict()
 
