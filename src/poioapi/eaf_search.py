@@ -8,11 +8,11 @@ OUTPUT_XLS_PATH = "out.xls"
 '''
 
 # returns True if something was found
-def eaf_search(input_path, output_path, search_query, sheet_name):
+def eaf_search(input_path, sheet, search_query):
     annotation_graph = poioapi.annotationgraph.AnnotationGraph.from_elan(input_path)
     tree = annotation_graph.as_tree()
     tree.filter(search_query)
-    wrote_something = tree.print_to_xls(output_path, filtered=True, name=sheet_name)
+    wrote_something = tree.print_to_xls_sheet(sheet, filtered=True)
     return wrote_something
 
 '''
