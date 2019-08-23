@@ -74,7 +74,7 @@ class Tree(object):
                 for child in self.children:
                     child.print(False)
 
-    def print_to_xls_sheet(self, sheet, filtered=False):
+    def print_to_xls(self, output_file, name="sheet", filtered=False):
         font_main = xlwt.Font()
         font_main.name = 'Arial'
         font_main.colour_index = 0
@@ -108,6 +108,21 @@ class Tree(object):
         style_context_sep.borders.top_colour = 3
         style_context_sep.borders.bottom = 2
         style_context_sep.borders.bottom_colour = 3
+
+        wb = xlwt.Workbook()
+        flag = False
+        try:
+            rb = xlrd.open_workbook(output_file, on_demand=True, formatting_info=True)
+        except XLRDError as e:
+            if str(e) == "File size is 0 bytes":
+                flag = True
+            else:
+                raise ("Got a trouble with xls file opening")
+        if not flag:
+            wb = copy(rb)
+
+        sheet = wb.add_sheet(name)
+        # above: opened output file for editting and added new sheet to it
 
         tier_col = dict()
 
@@ -188,6 +203,7 @@ class Tree(object):
                 row_offset += 1
 
         if not empty:
+            wb.save(output_file)
             return True
         else:
             return False
