@@ -2,6 +2,7 @@ import xlwt
 import xlrd
 from xlrd import XLRDError
 from xlutils.copy import copy
+import pprint
 import re
 
 
@@ -74,7 +75,13 @@ class Tree(object):
                 for child in self.children:
                     child.print(False)
 
-    def print_to_xls(self, output_file, name="sheet", filtered=False):
+    def print_to_xls(
+        self,
+        output_file,
+        name = "sheet",
+        filtered = False,
+        result_list = None):
+
         font_main = xlwt.Font()
         font_main.name = 'Arial'
         font_main.colour_index = 0
@@ -111,13 +118,19 @@ class Tree(object):
 
         wb = xlwt.Workbook()
         flag = False
+
         try:
             rb = xlrd.open_workbook(output_file, on_demand=True, formatting_info=True)
+
+        except FileNotFoundError:
+            flag = True
+
         except XLRDError as e:
             if str(e) == "File size is 0 bytes":
                 flag = True
             else:
                 raise ("Got a trouble with xls file opening")
+
         if not flag:
             wb = copy(rb)
 
@@ -128,17 +141,28 @@ class Tree(object):
 
         empty = True
 
-        def print_block(node, sheet, row_offset=0):
+        def print_block(node, sheet, row_offset=0, tier_dict = None):
             for child in node.children:
-                print_block(child, sheet, row_offset)
+                print_block(child, sheet, row_offset, tier_dict)
             tier_col[node.tier_id] += 1
-            sheet.write(tiers.index(node.tier_id) + row_offset, tier_col[node.tier_id], node.data, style)
+
+            sheet.write(
+                tiers.index(node.tier_id) + row_offset,
+                tier_col[node.tier_id],
+                re.sub(r'\s+', ' ', node.data),
+                style)
+
+            if tier_dict is not None:
+                tier_dict[node.tier_id].append(node.data)
 
         row_offset = 0
         tiers = self.get_tiers()
         for child in self.children:
             if filtered and not child.marked_as_filtered:
                 continue
+
+            result_dict = {'tier_list': [tier for tier in tiers]}
+            result_list.append(result_dict)
 
             empty = False
 
@@ -148,11 +172,17 @@ class Tree(object):
 
             row_offset += 2
 
+            # Left context.
+
             child_index = self.children.index(child)
             if child_index > 0:
                 left_context = self.children[child_index - 1]
+                left_dict = {}
+                result_dict['left_context'] = left_dict
             else:
                 left_context = None
+                result_dict['left_context'] = None
+
             if left_context:
 
                 sheet.write(row_offset, 0, "Left context", style_context_sep)
@@ -163,11 +193,19 @@ class Tree(object):
                     sheet.write(row_offset + row, 0, tier, style_tiers)
                     row += 1
                     tier_col[tier] = 1
-                print_block(left_context, sheet, row_offset)
+                    left_dict[tier] = []
+
+                print_block(left_context, sheet, row_offset, left_dict)
                 row_offset += len(tiers) + 1
+
             else:
                 sheet.write(row_offset, 0, "No left context", style_context_sep)
                 row_offset += 2
+
+            # Search result.
+
+            value_dict = {}
+            result_dict['search_result'] = value_dict
 
             sheet.write(row_offset, 0, "Search result", style_context_sep)
             row_offset += 2
@@ -177,14 +215,20 @@ class Tree(object):
                 sheet.write(row, 0, tier, style_tiers)
                 row += 1
                 tier_col[tier] = 1
+                value_dict[tier] = []
 
-            print_block(child, sheet, row_offset)
+            print_block(child, sheet, row_offset, value_dict)
             row_offset += len(tiers) + 1
+
+            # Right context.
 
             if child_index < len(self.children) - 1:
                 right_context = self.children[child_index + 1]
+                right_dict = {}
+                result_dict['right_context'] = right_dict
             else:
                 right_context = None
+                result_dict['right_context'] = None
 
             if right_context:
 
@@ -196,8 +240,11 @@ class Tree(object):
                     sheet.write(row, 0, tier, style_tiers)
                     row += 1
                     tier_col[tier] = 1
-                print_block(right_context, sheet, row_offset)
+                    right_dict[tier] = []
+
+                print_block(right_context, sheet, row_offset, right_dict)
                 row_offset += len(tiers) + 1
+
             else:
                 sheet.write(row_offset, 0, "No right context", style_context_sep)
                 row_offset += 1
